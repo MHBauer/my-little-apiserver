@@ -55,9 +55,26 @@ seem to be 1 or 2 people who understand current k8s structure).
                install/
                <versions>
                v1alpha1/
+               validation/
       apiserver/
       cmd/server/
       registry/
+          <api-group-name>/
+              rest/
+                  <storage>
+              <individual types>/
+                  storage.go
+                  strategy.go
+          servicecatalog/
+              rest/
+                  storage_servicecatalog.go
+              broker/
+                  storage.go
+                  strategy.go
+              binding/
+                  storage.go
+                  strategy.go
+              ... other types
 ```
 
 ## cmd/
@@ -94,7 +111,7 @@ Typical Subdirectories:
  - install
  - <k8s-versions>
  - v1alpha1
- - ?? validation ??
+ - validation
 
 This directory will be the generic definition of an `API Group`. It
 must have a base golang definition of the types to be exposed ??called
@@ -105,12 +122,10 @@ on what internal means. Is it what storage uses?  What a controller
 operating on these resources see?)
 
 It must have an `install/` directory to do the registration of the
-apigroup with the generic apiserver infrastructure. This will have an
-`install.go` file, which will contain an `init()` to be imported by
-the base server in `cmd/`. (This is too much spooky action at a
-distance for me. I don't know the design decision that resulted in
-this result. I would prefer an explicit registration/installation
-call.)
+apigroup with the generic apiserver infrastructure.
+
+a `validation` subdirectory is here by convention. Beyond the `pod`
+type, I have not seen validation done externally from storage.
 
 There ?? must ?? be one or more versioned api directories following
 the k8s versioning scheme. These tend to start off as copies of the
@@ -121,20 +136,35 @@ directives. ?? ?? It contains comments used by the code generation. ??
 
 Generated code is contained here for ?? deepcopy ??.
 
-### `v1alpha1` - versioned subdirectory
+### `install/` - initializers
+
+This will have an `install.go` file, which will contain an `init()` to
+be imported by the base server in `cmd/`. (This is too much spooky
+action at a distance for me. I don't know the design decision that
+resulted in this result. I would prefer an explicit
+registration/installation call.)
+
+
+### `v1alpha1/` - versioned subdirectory
 
 Contains:
  - Version specific `types.go`.
  - `register.go` for registering the types of that version,
  - `doc.go` for information about what code to generate.
- - Lots of generated code. 
+ - Lots of generated code.
+
+### `validation/`
+
+validation of incoming objects to be stored. remember to check all the
+fields. This is to make sure that the objects can be stored as they
+are. it is not to change the state of the incoming objects.
 
 ### apis unknowns
 
 not sure where conversion.go and defaults.go must be. In versioned
 resources or at the toplevel unversioned resources?
 
-## pkg/cmd/server/
+## `pkg/cmd/server/`
 
 The implementation of the toplevel `cmd/<server-name>/server.go` 
 
@@ -175,7 +205,20 @@ apis. Stores the generic unversioned resource (which if we recall must
 be able to store *any* version of a resource.
 
 Still learning about it. ?? This exists to decouple storage from
-representation. ??
+representation. ?? 
+
+apigroup gets a folder, then a `rest` folder for the overall
+storage. this concerns itself with the versioning.
+
+each type gets it's own folder.
+
+### `rest/`
+
+### <type> folder
+
+each type has it's own directory with a `storage.go` and a `strategy.go`.
+
+storage uses the strategy, strategy uses the validation.
 
 # generated code
 
